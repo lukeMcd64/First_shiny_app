@@ -1,0 +1,178 @@
+---
+title: "WordleGuesser"
+output: html_document
+date: '2022-04-10'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#Import word list
+words <- read.table("words2.txt")
+
+```
+
+
+```{r}
+#Load in required libraries
+library(dplyr)
+library(stringr)
+library(shiny)
+```
+
+```{r}
+#Data Cleaning
+
+#Only 5 letter words
+words_df <- words %>% 
+  rename(Word = V1) %>%
+  mutate(Length = nchar(Word)) %>%
+  filter(Length == 5) %>% 
+  select(Word)
+
+
+#Ensure column is unique
+
+words_df <- words_df %>% 
+    group_by(Word) %>%
+    tally() %>%
+    filter(n == 1) #remove duplicates
+```
+
+Functions
+```{r}
+
+#Returns words with specified letter in specified position
+place_holder_Letter <- function(let, pos, df) {
+  
+  df_mutated <- df %>%
+    mutate(let1 = substring(Word, 1, 1), let2 = substring(Word, 2, 2), let3 = substring(Word, 3, 3), let4  = substring(Word, 4, 4), let5 = substring(Word, 5, 5))
+  
+  if (pos == 1) {
+    guesses <- df_mutated %>% filter(let1 == let)
+  } else if (pos == 2) {
+    guesses <- df_mutated %>% filter(let2 == let)
+  } else if (pos == 3) {
+    guesses <- df_mutated %>% filter(let3 == let)
+  } else if (pos == 4) {
+    guesses <- df_mutated %>% filter(let4 == let)
+  } else {
+    guesses <- df_mutated %>% filter(let5 == let)
+  }
+  
+  return(guesses %>% select(Word))
+}
+  
+
+
+#Returns words from a dataframe that don't contain a specific letter
+#Returns words from a dataframe that contain a specific letter
+#Uses goodLet to determine whether to include or exclude letters
+good_bad_letters <- function(let = "", goodLet = TRUE, df) {
+  if (let == "") {
+    result <- df
+    
+  } else {
+    if (goodLet) {
+      #filter for words containing a specific letter  
+      #index_vec <- grep(str_or(let), df$Word)
+      result <- df %>% filter(str_detect(Word, char_bracket(let)))
+    } else {
+      #filter for words that do not contain a specific letter
+      result <- df %>% filter(!str_detect(Word, char_or(let)))
+    }
+    colnames(result) <- ("Word")
+  }
+  
+  return(result)
+}
+ 
+
+#joins the data from each result together
+join_results <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
+  
+  if (is.null(df1) & is.null(df2)) {
+    result <- df3
+  } else if (is.null(df1) & is.null(df3)) {
+    result <- df2
+  } else if (is.null(df2) & is.null(df3)) {
+    result <- df1
+  } else if (is.null(df1)) {
+    result <- df2 %>% inner_join(df3, by = "Word")
+  } else if (is.null(df2)) {
+    result <- df1 %>% inner_join(df3, by = "Word")
+  } else if (is.null(df3)) {
+    result <- df1 %>% inner_join(df2, by = "Word")
+  } else if (is.null(df1) & is.null(df2) & is.null(df3)) {
+    result <- words_df
+  } else {
+    result <-  df1 %>% inner_join(df2, by = "Word") %>% inner_join(df3, by = "Word")
+  }
+  
+  return(result)
+}
+
+#Helper functions
+#inserts an ')(' between characters
+char_bracket <- function(letters) {
+  
+  str <- gsub("", ")(", letters)
+  
+  len <- nchar(str)
+  
+  print(len)
+  str <- substring(str, 2, len - 1)
+ 
+  return(str)
+}
+
+#inserts an '|' between characters
+char_or <- function(letters) {
+  
+  str <- gsub("", "|", letters)
+  
+  len <- nchar(str)
+  
+  print(len)
+  str <- substring(str, 2, len - 1)
+ 
+  return(str)
+}
+
+
+
+
+```
+
+
+```{r}
+good_bad_letters(let = "", goodLet = FALSE, words_df)
+```
+
+
+
+
+```{r}
+l1 <- good_bad_letters(goodLet = TRUE, df = words_df)
+
+l2 <- good_bad_letters("e", FALSE, words_df)
+
+
+l3 <- join_results(df1 = l1, df2 = l2)
+
+l2 %>% group_by(Word) %>%
+  tally() %>% filter(n > 1)
+
+
+```
+
+Shiny app
+```{r}
+
+```
+
+
+
