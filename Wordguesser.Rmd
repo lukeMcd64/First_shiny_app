@@ -8,27 +8,27 @@ date: '2022-04-10'
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
+Import word list
 ```{r}
 #Import word list
-words <- read.table("words2.txt")
+#words <- read.table("words2.txt")
+words <- data.frame(scan("page1.txt", what = "character"))
+colnames(words) <- "Word"
 
+words$Word <- tolower(words$Word)
 ```
 
-
+Load in required libraries
 ```{r}
-#Load in required libraries
 library(dplyr)
 library(stringr)
 library(shiny)
+library(gtools)
 ```
-
+Data Cleaning
 ```{r}
-#Data Cleaning
-
 #Only 5 letter words
 words_df <- words %>% 
-  rename(Word = V1) %>%
   mutate(Length = nchar(Word)) %>%
   filter(Length == 5) %>% 
   select(Word)
@@ -42,9 +42,8 @@ words_df <- words_df %>%
     filter(n == 1) #remove duplicates
 ```
 
-Functions
+Main Functions
 ```{r}
-
 #Returns words with specified letter in specified position
 place_holder_Letter <- function(let, pos, df) {
   
@@ -77,9 +76,15 @@ good_bad_letters <- function(let = "", goodLet = TRUE, df) {
     
   } else {
     if (goodLet) {
+      
+      #find all permutations for pattern
+      pat_vec <- pattern_perms(let)
+      
+      #convert string into form for filter function
+      str_pat <- unlist(lapply(toString(pat_vec), gsub, pattern = ", ", replacement = "|"))
+      
       #filter for words containing a specific letter  
-      #index_vec <- grep(str_or(let), df$Word)
-      result <- df %>% filter(str_detect(Word, char_bracket(let)))
+      result <- df %>% filter(str_detect(Word, str_pat))
     } else {
       #filter for words that do not contain a specific letter
       result <- df %>% filter(!str_detect(Word, char_or(let)))
@@ -114,64 +119,116 @@ join_results <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
   
   return(result)
 }
+```
 
-#Helper functions
-#inserts an ')(' between characters
-char_bracket <- function(letters) {
-  
-  str <- gsub("", ")(", letters)
+Helper functions
+```{r}
+#inserts regex characters'.*' between characters in a string
+str_incl_regex <- function(letters) {
+  str <- gsub(", ", "", letters)
+  str <- gsub("", ".*", str)
   
   len <- nchar(str)
   
-  print(len)
-  str <- substring(str, 2, len - 1)
+  str <- substring(str, 1, len)
  
   return(str)
 }
 
-#inserts an '|' between characters
+#inserts an '|' between characters in a string
 char_or <- function(letters) {
   
   str <- gsub("", "|", letters)
   
   len <- nchar(str)
   
-  print(len)
   str <- substring(str, 2, len - 1)
  
   return(str)
 }
 
-
-
-
+#returns vector of permutations given a string of characters
+pattern_perms <- function(pattern) {
+  len <- nchar(pattern)
+  #number of permutations
+  num_perm <- factorial(len)
+  pat_vec <- unlist(strsplit(pattern, ""))
+  #return(pat_vec)
+  perms_matrix <- permutations(len, len, pat_vec)
+  
+  row_vec <- c(toString(perms_matrix[1,]))
+  for (i in 2:num_perm) {
+    #need to collapse each row into strings and c
+    #concatenate each string onto a result vector
+    row_vec <- c(row_vec, toString(perms_matrix[i,]))
+  
+  }
+  #need to use apply function to apply gsub and char_bracket to all elements of vector
+  #to get vector string elements in the right regex pattern
+  result <- lapply(row_vec, gsub, pattern = ", ", replacement = "")
+  result <- lapply(result, str_incl_regex)
+  result <- unlist(result)
+  
+  return(result) 
+}
 ```
 
+Testing
+```{r}
+#x <- pattern_perms("abcd")
+#unlist(lapply(toString(x), gsub, pattern = ", ", replacement = "|"))
+X <- good_bad_letters(let = "uhc", goodLet = TRUE, words_df)
+Y <- good_bad_letters(let = "chu", goodLet = TRUE, words_df)
+X == Y
+
+```
 
 ```{r}
-good_bad_letters(let = "", goodLet = FALSE, words_df)
+X <- good_bad_letters(let = "uch", goodLet = TRUE, words_df)
+Y <- good_bad_letters(let = "reatsmog", goodLet = FALSE, words_df)
+Z <- place_holder_Letter("u", 3, words_df)
+A <- place_holder_Letter("c", 1, words_df)
+result <- join_results(X, Y, Z)
+result2 <- join_results(result, A)
+#word was chunk
+# good_bad_letters returns 0 results when the string isn't in the order of the word?
 ```
 
-
-
-
-```{r}
-l1 <- good_bad_letters(goodLet = TRUE, df = words_df)
-
-l2 <- good_bad_letters("e", FALSE, words_df)
-
-
-l3 <- join_results(df1 = l1, df2 = l2)
-
-l2 %>% group_by(Word) %>%
-  tally() %>% filter(n > 1)
-
-
-```
 
 Shiny app
 ```{r}
+textInput3<-function (inputId, label, value = "",...) 
+{
+    div(style="display:inline-block",
+        tags$label(label, `for` = inputId), 
+        tags$input(id = inputId, type = "text", value = value,...))
+}
 
+
+ui <- fluidPage(
+  titlePanel("Wordle Guessor"),
+  textInput(inputId = "good_Letters", label = "Included letters:", value = "", width = "15%"),
+  textInput(inputId = "bad_Letters", label = "Excluded letters:", value = "", width = "15%"),
+
+  
+  #textOutput("Input letters by position:"),
+  strong("Input letters by position:"),
+  splitLayout(
+    textInput(inputId = "Letter_1", label = "", value = "", width = "100%"),
+    textInput(inputId = "Letter_2", label = "", value = ""),
+    textInput(inputId = "Letter_3", label = "", value = ""),
+    textInput(inputId = "Letter_4", label = "", value = ""),
+    textInput(inputId = "Letter_5", label = "", value = ""),
+    cellWidths = 50
+  )
+  
+)
+
+server <- function(input, output, session) {
+  
+}
+
+shinyApp(ui, server)
 ```
 
 
