@@ -45,10 +45,18 @@ words_df <- words_df %>%
 Main Functions
 ```{r}
 #Returns words with specified letter in specified position
-place_holder_Letter <- function(let, pos, df) {
+place_holder_letter <- function(let, pos, df) {
+  #Case if let = ""
+  if (let == "") {
+    return(df)
+  }
   
   df_mutated <- df %>%
-    mutate(let1 = substring(Word, 1, 1), let2 = substring(Word, 2, 2), let3 = substring(Word, 3, 3), let4  = substring(Word, 4, 4), let5 = substring(Word, 5, 5))
+    mutate(let1 = substring(Word, 1, 1)
+           , let2 = substring(Word, 2, 2)
+           , let3 = substring(Word, 3, 3)
+           , let4  = substring(Word, 4, 4)
+           , let5 = substring(Word, 5, 5))
   
   if (pos == 1) {
     guesses <- df_mutated %>% filter(let1 == let)
@@ -60,6 +68,35 @@ place_holder_Letter <- function(let, pos, df) {
     guesses <- df_mutated %>% filter(let4 == let)
   } else {
     guesses <- df_mutated %>% filter(let5 == let)
+  }
+  
+  return(guesses %>% select(Word))
+}
+
+#Returns words with letter not in specified position
+out_of_pos_letter <- function(let, pos, df) {
+  #Case if let = ""
+  if (let == "") {
+    return(df)
+  }
+  
+  df_mutated <- df %>%
+    mutate(let1 = substring(Word, 1, 1)
+           , let2 = substring(Word, 2, 2)
+           , let3 = substring(Word, 3, 3)
+           , let4  = substring(Word, 4, 4)
+           , let5 = substring(Word, 5, 5))
+  
+  if (pos == 1) {
+    guesses <- df_mutated %>% filter(let1 != let)
+  } else if (pos == 2) {
+    guesses <- df_mutated %>% filter(let2 != let)
+  } else if (pos == 3) {
+    guesses <- df_mutated %>% filter(let3 != let)
+  } else if (pos == 4) {
+    guesses <- df_mutated %>% filter(let4 != let)
+  } else {
+    guesses <- df_mutated %>% filter(let5 != let)
   }
   
   return(guesses %>% select(Word))
@@ -76,18 +113,26 @@ good_bad_letters <- function(let = "", goodLet = TRUE, df) {
     
   } else {
     if (goodLet) {
+      if (nchar(let) > 1) {
+        #find all permutations for pattern
+        pat_vec <- pattern_perms(let)
+        
+        #convert string into form for filter function
+        str_pat <- unlist(lapply(toString(pat_vec), gsub, pattern = ", ", replacement = "|"))
       
-      #find all permutations for pattern
-      pat_vec <- pattern_perms(let)
-      
-      #convert string into form for filter function
-      str_pat <- unlist(lapply(toString(pat_vec), gsub, pattern = ", ", replacement = "|"))
+      } else {
+        str_pat <- str_incl_regex(let)
+      } 
       
       #filter for words containing a specific letter  
       result <- df %>% filter(str_detect(Word, str_pat))
     } else {
       #filter for words that do not contain a specific letter
-      result <- df %>% filter(!str_detect(Word, char_or(let)))
+      if (nchar(let) > 1){
+        result <- df %>% filter(!str_detect(Word, char_or(let)))
+      } else {
+        result <- df %>% filter(!str_detect(Word, let))
+      }
     }
     colnames(result) <- ("Word")
   }
@@ -96,8 +141,8 @@ good_bad_letters <- function(let = "", goodLet = TRUE, df) {
 }
  
 
-#joins the data from each result together
-join_results <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
+#joins up to three data frames
+join_three_df <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
   
   if (is.null(df1) & is.null(df2)) {
     result <- df3
@@ -119,6 +164,28 @@ join_results <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
   
   return(result)
 }
+
+#joins up to six data frames
+join_six_df <- function(df1 = NULL, df2 = NULL, df3 = NULL, df4 = NULL, df5 = NULL, df6 = NULL){
+  
+  if (is.null(df1) & is.null(df2) & is.null(df3)) {
+    
+    result <- join_three_df(df4, df5, df6) %>%
+    select(Word)
+  } else if (is.null(df4) & is.null(df5) & is.null(df6)) {
+    result <- join_three_df(df1, df2, df3) %>%
+    select(Word)
+    
+  } else {
+     result <- join_three_df(df1, df2, df3) %>%
+      inner_join(join_three_df(df4, df5, df6), by = "Word") %>%
+    select(Word)
+  }
+  
+  return(result)
+  
+}
+
 ```
 
 Helper functions
@@ -157,6 +224,7 @@ pattern_perms <- function(pattern) {
   perms_matrix <- permutations(len, len, pat_vec)
   
   row_vec <- c(toString(perms_matrix[1,]))
+  
   for (i in 2:num_perm) {
     #need to collapse each row into strings and c
     #concatenate each string onto a result vector
@@ -173,28 +241,6 @@ pattern_perms <- function(pattern) {
 }
 ```
 
-Testing
-```{r}
-#x <- pattern_perms("abcd")
-#unlist(lapply(toString(x), gsub, pattern = ", ", replacement = "|"))
-X <- good_bad_letters(let = "uhc", goodLet = TRUE, words_df)
-Y <- good_bad_letters(let = "chu", goodLet = TRUE, words_df)
-X == Y
-
-```
-
-```{r}
-X <- good_bad_letters(let = "uch", goodLet = TRUE, words_df)
-Y <- good_bad_letters(let = "reatsmog", goodLet = FALSE, words_df)
-Z <- place_holder_Letter("u", 3, words_df)
-A <- place_holder_Letter("c", 1, words_df)
-result <- join_results(X, Y, Z)
-result2 <- join_results(result, A)
-#word was chunk
-# good_bad_letters returns 0 results when the string isn't in the order of the word?
-```
-
-
 Shiny app
 ```{r}
 textInput3<-function (inputId, label, value = "",...) 
@@ -206,25 +252,67 @@ textInput3<-function (inputId, label, value = "",...)
 
 
 ui <- fluidPage(
+  shinythemes::themeSelector(),
   titlePanel("Wordle Guessor"),
-  textInput(inputId = "good_Letters", label = "Included letters:", value = "", width = "15%"),
-  textInput(inputId = "bad_Letters", label = "Excluded letters:", value = "", width = "15%"),
+  textInput(inputId = "good_letters", label = "Included letters:", value = "", width = "15%", placeholder = "Included letters"),
+  textInput(inputId = "bad_letters", label = "Excluded letters:", value = "", width = "15%", placeholder = "Excluded letters"),
 
   
   #textOutput("Input letters by position:"),
   strong("Input letters by position:"),
   splitLayout(
-    textInput(inputId = "Letter_1", label = "", value = "", width = "100%"),
-    textInput(inputId = "Letter_2", label = "", value = ""),
-    textInput(inputId = "Letter_3", label = "", value = ""),
-    textInput(inputId = "Letter_4", label = "", value = ""),
-    textInput(inputId = "Letter_5", label = "", value = ""),
-    cellWidths = 50
-  )
+    textInput(inputId = "Letter_1", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_2", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_3", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_4", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_5", label = "", value = "", placeholder = "__"),
+    cellWidths = 40
+  ),
+  strong("Input letters out of position:"),
+  splitLayout(
+    textInput(inputId = "Letter_6", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_7", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_8", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_9", label = "", value = "", placeholder = "__"),
+    textInput(inputId = "Letter_10", label = "", value = "", placeholder = "__"),
+    cellWidths = 40
+  ),
   
+   mainPanel(
+      tabsetPanel(
+        tabPanel("Possible Words", tableOutput("summary"))
+                 
+                 #verbatimTextOutput("summary"))
+                 
+      )
+    )
 )
 
 server <- function(input, output, session) {
+ 
+  
+  final_results <- reactive({
+    toString(join_three_df(
+      join_six_df(good_bad_letters(input$good_letters, TRUE, words_df)
+                  , good_bad_letters(input$bad_letters, FALSE, words_df)
+                  , place_holder_Letter(input$Letter_1, 1, words_df)
+                  , place_holder_Letter(input$Letter_2, 2, words_df)
+                  , place_holder_Letter(input$Letter_3, 3, words_df)
+                  , place_holder_Letter(input$Letter_4, 4, words_df)
+                  ),
+      
+      join_six_df(place_holder_Letter(input$Letter_5, 5, words_df)
+                  , out_of_pos_letter(input$Letter_6, 1, words_df)
+                  , out_of_pos_letter(input$Letter_7, 2, words_df)
+                  , out_of_pos_letter(input$Letter_8, 3, words_df)
+                  , out_of_pos_letter(input$Letter_9, 4, words_df)
+                  , out_of_pos_letter(input$Letter_10, 5, words_df)
+                  )
+    
+      )$Word)
+  })
+  
+  output$summary <- renderTable({final_results()})
   
 }
 
