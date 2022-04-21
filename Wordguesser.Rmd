@@ -1,6 +1,8 @@
 ---
 title: "WordleGuesser"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: '2022-04-10'
 ---
 
@@ -159,7 +161,8 @@ join_three_df <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
   } else if (is.null(df1) & is.null(df2) & is.null(df3)) {
     result <- words_df
   } else {
-    result <-  df1 %>% inner_join(df2, by = "Word") %>% inner_join(df3, by = "Word")
+    print("joining")
+    result <-  df1 %>% merge(df2, by = "Word") %>% merge(df3, by = "Word")
   }
   
   return(result)
@@ -187,6 +190,36 @@ join_six_df <- function(df1 = NULL, df2 = NULL, df3 = NULL, df4 = NULL, df5 = NU
 }
 
 ```
+
+
+#Testing
+
+join_three_df(
+  join_six_df(good_bad_letters("", FALSE, words_df)
+                    , good_bad_letters("a", TRUE, words_df)
+                    , place_holder_letter("", 1, words_df)
+                    , place_holder_letter("", 2, words_df)
+                    , place_holder_letter("", 3, words_df)
+                    , place_holder_letter("", 4, words_df)
+                    ),
+  join_six_df(place_holder_letter("", 5, words_df)
+                    , out_of_pos_letter("", 1, words_df)
+                    , out_of_pos_letter("", 2, words_df)
+                    , out_of_pos_letter("", 3, words_df)
+                    , out_of_pos_letter("", 4, words_df)
+                    , out_of_pos_letter("", 5, words_df)
+                    )
+)
+
+join_three_df(
+                    good_bad_letters("", FALSE, words_df)
+                    , good_bad_letters("a", TRUE, words_df)
+                    , place_holder_letter("", 1, words_df)
+)
+
+
+
+
 
 Helper functions
 ```{r}
@@ -268,7 +301,7 @@ ui <- fluidPage(
     textInput(inputId = "Letter_5", label = "", value = "", placeholder = "__"),
     cellWidths = 40
   ),
-  strong("Input letters out of position:"),
+  strong("Included letters out of position:"),
   splitLayout(
     textInput(inputId = "Letter_6", label = "", value = "", placeholder = "__"),
     textInput(inputId = "Letter_7", label = "", value = "", placeholder = "__"),
@@ -293,15 +326,15 @@ server <- function(input, output, session) {
   
   final_results <- reactive({
     toString(join_three_df(
-      join_six_df(good_bad_letters(input$good_letters, TRUE, words_df)
-                  , good_bad_letters(input$bad_letters, FALSE, words_df)
-                  , place_holder_Letter(input$Letter_1, 1, words_df)
-                  , place_holder_Letter(input$Letter_2, 2, words_df)
-                  , place_holder_Letter(input$Letter_3, 3, words_df)
-                  , place_holder_Letter(input$Letter_4, 4, words_df)
+      join_six_df(good_bad_letters(input$bad_letters, FALSE, words_df)
+                  , good_bad_letters(input$good_letters, TRUE, words_df)
+                  , place_holder_letter(input$Letter_1, 1, words_df)
+                  , place_holder_letter(input$Letter_2, 2, words_df)
+                  , place_holder_letter(input$Letter_3, 3, words_df)
+                  , place_holder_letter(input$Letter_4, 4, words_df)
                   ),
       
-      join_six_df(place_holder_Letter(input$Letter_5, 5, words_df)
+      join_six_df(place_holder_letter(input$Letter_5, 5, words_df)
                   , out_of_pos_letter(input$Letter_6, 1, words_df)
                   , out_of_pos_letter(input$Letter_7, 2, words_df)
                   , out_of_pos_letter(input$Letter_8, 3, words_df)
