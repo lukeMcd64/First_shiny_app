@@ -13,12 +13,36 @@ knitr::opts_chunk$set(echo = TRUE)
 Import word list
 ```{r}
 #Import word list
-#words <- read.table("words2.txt")
+
+
+#Large list
 words <- data.frame(scan("page1.txt", what = "character"))
 colnames(words) <- "Word"
-
 words$Word <- tolower(words$Word)
+
+#Small list of more normal words
+
+words_norm <- read.table("words2.txt")
+colnames(words_norm) <- "Word"
+words_norm$Word <- tolower(words_norm$Word)
+
 ```
+
+Starting Words guide
+```{r}
+Starting_Word <- c('OATER/ORATE/ROATE', 	'REALO', 'ALERT/ALTER/LATER', 'IRATE/RETIA/TERAI', 'ARIEL/RAILE', 
+                   'AEROS/AROSE/SOARE', 'ASTER/STARE/TEARS', 'EARLS/LASER', 'ARISE/RAISE', 'ANTRE/EARNT')
+
+Avg_correct_letters <- c(1.789, 1.781, 1.778, 1.778, 1.770, 1.768, 1.765, 1.757, 1.757, 1.736)
+
+starting_word_df <- data.frame('Starting Word' = Starting_Word,  'Avg correct letters' = Avg_correct_letters)
+
+
+
+```
+
+
+
 
 Load in required libraries
 ```{r}
@@ -35,10 +59,19 @@ words_df <- words %>%
   filter(Length == 5) %>% 
   select(Word)
 
+words_norm_df <-  words_norm %>% 
+  mutate(Length = nchar(Word)) %>%
+  filter(Length == 5) %>% 
+  select(Word)
+
 
 #Ensure column is unique
-
 words_df <- words_df %>% 
+    group_by(Word) %>%
+    tally() %>%
+    filter(n == 1) #remove duplicates
+
+words_norm_df <- words_norm_df %>% 
     group_by(Word) %>%
     tally() %>%
     filter(n == 1) #remove duplicates
@@ -306,9 +339,10 @@ ui <- fluidPage(
     
     mainPanel(
         tabsetPanel(
-          tabPanel("Possible Words", tableOutput("summary")),
-          tabPanel("Common Letters", tableOutput("common"))
-          
+          tabPanel("Starting Words", tableOutput("startingWords")),
+          tabPanel("Possible Words", tableOutput("allWords")),
+          tabPanel("Common Words", tableOutput("normWords")),
+          tabPanel("Letter Freq", tableOutput("common"))
                    
         )
     )
@@ -348,8 +382,15 @@ server <- function(input, output, session) {
     max_occur_let(results()["Word"], input$index) #column name is changing here
   })
   
+  norm_words <- reactive({
+    toString(join_three_df(results(), words_norm_df)$Word)
+  })
+  
+  
   output$common <- renderTable({max_let()})
-  output$summary <- renderTable({final_results()})
+  output$allWords <- renderTable({final_results()})
+  output$normWords <- renderTable({norm_words()})
+  output$startingWords <- renderTable(starting_word_df)
   
   
 }
