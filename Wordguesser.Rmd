@@ -161,7 +161,6 @@ join_three_df <- function(df1 = NULL, df2 = NULL, df3 = NULL) {
   } else if (is.null(df1) & is.null(df2) & is.null(df3)) {
     result <- words_df
   } else {
-    print("joining")
     result <-  df1 %>% merge(df2, by = "Word") %>% merge(df3, by = "Word")
   }
   
@@ -189,37 +188,20 @@ join_six_df <- function(df1 = NULL, df2 = NULL, df3 = NULL, df4 = NULL, df5 = NU
   
 }
 
+max_occur_let <- function(df, let_index) {
+  #colnames(df) <- c("Word", n)
+  result <- df %>% 
+    mutate(letter = substring(Word, let_index, let_index)) %>%
+    count(letter) %>%
+    arrange(desc(n))
+  
+  #result <- result$letter[1]
+  
+  return(result)
+  
+}
+
 ```
-
-
-#Testing
-
-join_three_df(
-  join_six_df(good_bad_letters("", FALSE, words_df)
-                    , good_bad_letters("a", TRUE, words_df)
-                    , place_holder_letter("", 1, words_df)
-                    , place_holder_letter("", 2, words_df)
-                    , place_holder_letter("", 3, words_df)
-                    , place_holder_letter("", 4, words_df)
-                    ),
-  join_six_df(place_holder_letter("", 5, words_df)
-                    , out_of_pos_letter("", 1, words_df)
-                    , out_of_pos_letter("", 2, words_df)
-                    , out_of_pos_letter("", 3, words_df)
-                    , out_of_pos_letter("", 4, words_df)
-                    , out_of_pos_letter("", 5, words_df)
-                    )
-)
-
-join_three_df(
-                    good_bad_letters("", FALSE, words_df)
-                    , good_bad_letters("a", TRUE, words_df)
-                    , place_holder_letter("", 1, words_df)
-)
-
-
-
-
 
 Helper functions
 ```{r}
@@ -285,47 +267,59 @@ textInput3<-function (inputId, label, value = "",...)
 
 
 ui <- fluidPage(
-  shinythemes::themeSelector(),
+  theme = shinythemes::shinytheme('readable'),
   titlePanel("Wordle Guessor"),
-  textInput(inputId = "good_letters", label = "Included letters:", value = "", width = "15%", placeholder = "Included letters"),
-  textInput(inputId = "bad_letters", label = "Excluded letters:", value = "", width = "15%", placeholder = "Excluded letters"),
-
   
-  #textOutput("Input letters by position:"),
-  strong("Input letters by position:"),
-  splitLayout(
-    textInput(inputId = "Letter_1", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_2", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_3", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_4", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_5", label = "", value = "", placeholder = "__"),
-    cellWidths = 40
-  ),
-  strong("Included letters out of position:"),
-  splitLayout(
-    textInput(inputId = "Letter_6", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_7", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_8", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_9", label = "", value = "", placeholder = "__"),
-    textInput(inputId = "Letter_10", label = "", value = "", placeholder = "__"),
-    cellWidths = 40
-  ),
+  sidebarLayout(
+    sidebarPanel(
+    textInput(inputId = "good_letters", label = "Included letters:", value = "",
+              placeholder = "Included letters"),
+    textInput(inputId = "bad_letters", label = "Excluded letters:", value = "", 
+              placeholder = "Excluded letters"),
   
-   mainPanel(
-      tabsetPanel(
-        tabPanel("Possible Words", tableOutput("summary"))
-                 
-                 #verbatimTextOutput("summary"))
-                 
-      )
+    
+    #textOutput("Input letters by position:"),
+    strong("Input letters by position:"),
+      splitLayout(
+        textInput(inputId = "Letter_1", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_2", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_3", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_4", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_5", label = "", value = "", placeholder = "__"),
+        cellWidths = 40
+      ),
+      strong("Included letters out of position:"),
+      splitLayout(
+        textInput(inputId = "Letter_6", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_7", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_8", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_9", label = "", value = "", placeholder = "__"),
+        textInput(inputId = "Letter_10", label = "", value = "", placeholder = "__"),
+        cellWidths = 40
+      ),
+      strong("Common Letter index:"),
+      numericInput("index", "", value = 1, 
+                   width = 100, min = 1, max = 5),
+      textOutput("Most common letter"),
+          verbatimTextOutput("maxLet")
+    ), 
+    
+    mainPanel(
+        tabsetPanel(
+          tabPanel("Possible Words", tableOutput("summary")),
+          tabPanel("Common Letters", tableOutput("common"))
+          
+                   
+        )
     )
+  )
 )
 
 server <- function(input, output, session) {
  
   
-  final_results <- reactive({
-    toString(join_three_df(
+  results <- reactive({
+    join_three_df(
       join_six_df(good_bad_letters(input$bad_letters, FALSE, words_df)
                   , good_bad_letters(input$good_letters, TRUE, words_df)
                   , place_holder_letter(input$Letter_1, 1, words_df)
@@ -342,10 +336,21 @@ server <- function(input, output, session) {
                   , out_of_pos_letter(input$Letter_10, 5, words_df)
                   )
     
-      )$Word)
+      )
   })
   
+  final_results <- reactive({
+    toString(results()$Word)
+  })
+  
+  
+  max_let <- reactive({
+    max_occur_let(results()["Word"], input$index) #column name is changing here
+  })
+  
+  output$common <- renderTable({max_let()})
   output$summary <- renderTable({final_results()})
+  
   
 }
 
